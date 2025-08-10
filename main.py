@@ -7,7 +7,11 @@ from app.scrapers import realestate_au, domain_au
 from app.scrapers.common import extract_from_jsonld
 from app import config
 from app.search import search_address
+from fastapi import Request
+from fastapi.responses import JSONResponse
+from duckduckgo_search.exceptions import RatelimitException
 import asyncio
+
 
 app = FastAPI(title="Real Estate Aggregator + CLIP", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -60,3 +64,11 @@ from app.clip_embed import embed_image_urls  # noqa: E402
 async def embed(req: EmbedRequest):
     vecs = await embed_image_urls(req.image_urls)
     return {"vectors": vecs, "dim": (len(vecs[0]) if vecs and vecs[0] else 0)}
+
+
+@app.exception_handler(RatelimitException)
+async def ratelimit_handler(request: Request, exc: RatelimitException):
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Search provider rate-limited. Please retry later."},
+    )
