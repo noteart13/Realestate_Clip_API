@@ -9,3 +9,5 @@ MAX_RESULTS = int(os.getenv("MAX_RESULTS", "2"))
 DDG_REGION = os.getenv("DDG_REGION", "au-en")
 CLIP_MODEL = os.getenv("CLIP_MODEL", "ViT-B/32")
 PROXY_URL = os.getenv("PROXY_URL", "")
+PROXY_URL = os.getenv("PROXY_URL", "")
+
