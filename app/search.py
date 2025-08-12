@@ -38,23 +38,43 @@ def _normalize_ddg_href(href: str) -> str:
     return href
 
 def _ddg_html_fallback(query: str, max_results: int) -> List[str]:
-    try:
-        with httpx.Client(timeout=15, headers={"User-Agent": config.USER_AGENT}) as c:
-            r = c.get("https://duckduckgo.com/html/", params={"q": query, "kl": (config.DDG_REGION or "wt-wt")})
-            r.raise_for_status()
-            soup = BeautifulSoup(r.text, "lxml")
-            out: List[str] = []
-            for a in soup.select("a.result__a, a.result__url, a[href].result__a, a[href].result__snippet"):
-                href = _normalize_ddg_href(a.get("href", "").strip())
-                if href:
-                    out.append(href)
-                    if len(out) >= max_results:
-                        break
-            print(f"[DDG-HTML] ok: {query} -> {len(out)} urls")
-            return out
-    except Exception as e:
-        print(f"[DDG-HTML] error: {query} -> {e}")
-        return []
+    """Fallback HTML – thử nhiều endpoint và luôn follow redirect."""
+    candidates = [
+        "https://html.duckduckgo.com/html/",  # nên dùng cái này
+        "https://duckduckgo.com/html/",
+        "https://lite.duckduckgo.com/lite/",
+    ]
+    proxies = None
+    if getattr(config, "PROXY_URL", ""):
+        proxies = {"http": config.PROXY_URL, "https": config.PROXY_URL}
+
+    for base in candidates:
+        try:
+            with httpx.Client(
+                timeout=20,
+                headers={"User-Agent": config.USER_AGENT},
+                follow_redirects=True,          # QUAN TRỌNG
+                proxies=proxies,
+            ) as c:
+                r = c.get(base, params={"q": query, "kl": (config.DDG_REGION or "wt-wt")})
+                r.raise_for_status()
+                soup = BeautifulSoup(r.text, "lxml")
+
+                urls: List[str] = []
+                for a in soup.select("a.result__a[href], a.result__url[href], a[href].result__a, a[href].result__snippet"):
+                    href = _normalize_ddg_href(a.get("href", "").strip())
+                    if href:
+                        urls.append(href)
+                        if len(urls) >= max_results:
+                            break
+                print(f"[DDG-HTML] {base} ok: {query} -> {len(urls)} urls")
+                if urls:
+                    return urls
+        except Exception as e:
+            print(f"[DDG-HTML] {base} error: {query} -> {e}")
+    return []
+
+
 
 def _ddg_text(query: str, max_results: int) -> List[str]:
     attempt = 0

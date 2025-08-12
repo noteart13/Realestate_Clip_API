@@ -1,0 +1,11 @@
+services:
+  api:
+    build: .
+    image: realestate-api:dev
+    container_name: realestate-api
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - ./:/app           # map code local vào container
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
